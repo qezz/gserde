@@ -59,15 +59,15 @@ pub fn main() {
     |> foo_json.to_string
 
   let foo_b = foo_str |> foo_json.from_string |> result.lazy_unwrap(fn() {
-    io.debug(\"parse error calling foo_json.from_string\")
+    echo \"parse error calling foo_json.from_string\"
     panic
   })
 
   case foo_a == foo_b {
     True -> io.println(\"foos equal\")
     False -> {
-      io.debug(#(\"a\", foo_a))
-      io.debug(#(\"b\", foo_b))
+      echo #(\"a\", foo_a)
+      echo #(\"b\", foo_b)
       panic as \"not equal\"
     }
   }
@@ -100,8 +100,8 @@ pub fn main() {
   case bar_a == bar_b {
     True -> io.println(\"bars equal\")
     False -> {
-      io.debug(#(\"a\", bar_a))
-      io.debug(#(\"b\", bar_b))
+      echo #(\"a\", bar_a)
+      echo #(\"b\", bar_b)
       panic as \"not equal\"
     }
   }
@@ -123,30 +123,25 @@ fn exec(bin: String, args: List(String)) {
 /// - write an entrypoint module--foo_json_test--into our source, then run it!
 pub fn end_to_end_test() {
   // create the foo fixture
+  simplifile.create_directory("tmp_out")
   let assert Ok(_) =
-    simplifile.write(to: "src/internal/foo.gleam", contents: foo_module)
+    simplifile.write(to: "tmp_out/foo.gleam", contents: foo_module)
 
   let assert Ok(_) =
-    simplifile.write(to: "src/internal/bar.gleam", contents: bar_module)
+    simplifile.write(to: "tmp_out/bar.gleam", contents: bar_module)
 
   // run our gen cli
-  exec("gleam", ["run"])
+  exec("gleam", ["run", "--", "out"])
 
   // write our test module and run it
   let assert Ok(_) =
-    simplifile.write(
-      to: "src/internal/foo_json_test.gleam",
-      contents: foo_json_test,
-    )
+    simplifile.write(to: "tmp_out/foo_json_test.gleam", contents: foo_json_test)
 
   let assert Ok(_) =
-    simplifile.write(
-      to: "src/internal/bar_json_test.gleam",
-      contents: bar_json_test,
-    )
+    simplifile.write(to: "tmp_out/bar_json_test.gleam", contents: bar_json_test)
 
   let assert Ok(last_foooutput_line) =
-    exec("gleam", ["run", "-m=internal/foo_json_test"])
+    exec("gleam", ["run", "-m=internal/tmp_out/foo_json_test"])
     |> string.split("\n")
     |> list.last
 

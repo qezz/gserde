@@ -1,3 +1,4 @@
+import argv
 import dot_env/env
 import evil.{expect}
 import fswalk
@@ -7,6 +8,7 @@ import gleam/io
 import gleam/list
 import gleam/result
 import gleam/string
+import gleam/yielder
 import internal/deserializer
 import internal/serializer
 import request.{type Request, Request}
@@ -38,19 +40,32 @@ pub fn main() {
     Ok(_) -> True
     _ -> False
   }
+
+  let path = case argv.load().arguments {
+    [path] -> path
+    _ -> panic as "path to a directory is required as a first argument"
+  }
+
   fswalk.builder()
-  |> fswalk.with_path("src")
-  |> fswalk.with_entry_filter(fn(it) {
-    string.ends_with(it.filename, ".gleam") && fswalk.only_files(it)
+  |> fswalk.with_path(path)
+  |> fswalk.with_traversal_filter(fn(it) {
+    string.ends_with(it.filename, ".gleam") && !it.stat.is_directory
   })
   |> fswalk.walk
-  |> fswalk.map(fn(v) { expect(v, "failed to walk").filename })
-  |> fswalk.each(fn(f) { process_single(f, is_debug) })
+  |> yielder.map(fn(v) { expect(v, "failed to walk").filename })
+  |> yielder.filter(fn(v) {
+    // I have no idea why the traversal filter still includes directories.
+    string.ends_with(v, ".gleam")
+  })
+  |> yielder.each(fn(f) {
+    echo "processing single " <> f
+    process_single(f, is_debug)
+  })
 }
 
 pub fn process_single(src_filename: String, is_debug) {
   bool.guard(!is_debug, Nil, fn() {
-    io.debug(#("Processing", src_filename))
+    io.println(string.inspect(#("Processing", src_filename)))
     Nil
   })
 
@@ -66,7 +81,7 @@ pub fn process_single(src_filename: String, is_debug) {
   let assert Ok(parsed) =
     glance.module(code)
     |> result.map_error(fn(err) {
-      io.debug(err)
+      io.println(string.inspect(err))
       panic
     })
 

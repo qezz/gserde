@@ -1,5 +1,4 @@
 import common.{decoder_name_of_t}
-import evil.{expect}
 import glance
 import gleam/int
 import gleam/io
@@ -17,14 +16,14 @@ fn quote(str) {
 
 fn gen_decoder(typ, req: Request) {
   case typ {
-    glance.NamedType(name, module_name, parameters) -> {
+    glance.NamedType(_loc, name, module_name, parameters) -> {
       case name {
         "List" -> {
-          let assert Ok(t0) = list.at(parameters, 0)
+          let assert Ok(t0) = list.first(parameters)
           gens.call("dynamic.list", [gen_decoder(t0, req)])
         }
         "Option" -> {
-          let assert Ok(t0) = list.at(parameters, 0)
+          let assert Ok(t0) = list.first(parameters)
           gens.call("dynamic.optional", [gen_decoder(t0, req)])
         }
         _ -> {
@@ -41,7 +40,7 @@ fn gen_decoder(typ, req: Request) {
         }
       }
     }
-    glance.TupleType(parts) -> {
+    glance.TupleType(_loc, parts) -> {
       let m_tuple =
         list.length(of: parts)
         |> int.to_string
@@ -52,13 +51,13 @@ fn gen_decoder(typ, req: Request) {
       )
     }
     x -> {
-      io.debug(#("warning: unsupported decoding", x))
+      io.println(string.inspect(#("warning: unsupported decoding", x)))
       gens.VarPrimitive("dynamic.toodoo")
     }
   }
 }
 
-fn gen_root_decoder(req) {
+fn gen_root_decoder(req: Request) {
   let Request(
     src_module_name: src_module_name,
     type_name: type_name,
@@ -76,14 +75,20 @@ fn gen_root_decoder(req) {
       gens.call("dynamic.decode" <> n_str, [
         gens.VarPrimitive(basename(src_module_name) <> "." <> variant.name),
         ..list.map(req.variant.fields, fn(field) {
-          gens.call("dynamic.field", [
-            gens.VarPrimitive(
-              option.to_result(field.label, Nil)
-              |> expect("@todo/panic variants must be labeled")
-              |> quote,
-            ),
-            gen_decoder(field.item, req),
-          ])
+          case field {
+            glance.LabelledVariantField(item: _, label:) -> {
+              gens.call("dynamic.field", [
+                gens.VarPrimitive(
+                  label
+                  |> quote,
+                ),
+                gen_decoder(field.item, req),
+              ])
+            }
+            glance.UnlabelledVariantField(item: _) -> {
+              todo
+            }
+          }
         })
       ]),
     ]),

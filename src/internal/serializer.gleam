@@ -25,15 +25,15 @@ fn request_stmt(t: t.GleamType, mq, imps) {
 
 fn glance_t_to_codegen_t(x: glance.Type, req: request.Request) -> StmtGenReq {
   case x {
-    glance.NamedType(name, module, parameters) -> {
+    glance.NamedType(_loc, name, module, parameters) -> {
       case name {
         "List" -> {
-          let assert Ok(t0) = list.at(parameters, 0)
+          let assert Ok(t0) = list.first(parameters)
           request_basic_stmt(t.ListType(glance_t_to_codegen_t(t0, req).t))
         }
         "Option" -> {
           // https://serde.rs/enum-representations.html
-          let assert Ok(t0) = list.at(parameters, 0)
+          let assert Ok(t0) = list.first(parameters)
           request_basic_stmt(t.option(glance_t_to_codegen_t(t0, req).t))
         }
         "Result" -> {
@@ -59,20 +59,22 @@ fn glance_t_to_codegen_t(x: glance.Type, req: request.Request) -> StmtGenReq {
       }
     }
 
-    glance.TupleType(elements) ->
+    glance.TupleType(_loc, elements) ->
       request_basic_stmt(
         t.TupleType(
           list.map(elements, fn(el) { glance_t_to_codegen_t(el, req).t }),
         ),
       )
 
-    glance.FunctionType(_paramters, _return) -> {
+    glance.FunctionType(_loc, _paramters, _return) -> {
       panic as "cannot serialize entities with functions"
     }
 
-    glance.VariableType(_name) -> {
+    glance.VariableType(_loc, _name) -> {
       panic as "unimplemented! VariableType"
     }
+
+    _ -> panic as "unimplemented"
   }
 }
 
@@ -157,22 +159,29 @@ fn gen_to_json(req) {
   ) = req
   let #(required_imports, field_serializers) =
     list.fold(variant.fields, #([], []), fn(acc, field) {
-      let label =
-        option.to_result(field.label, Nil)
-        |> expect(
-          "Variant " <> variant.name <> " must have labels for all fields",
-        )
-      let #(gen_req, serializer) = serializer_of_t(field.item, label, req)
-      // produce:
-      //   foo: my_module.to_json(t.foo)
+      case field {
+        glance.LabelledVariantField(_item, label) -> {
+          let #(gen_req, serializer) = serializer_of_t(field.item, label, req)
+          // produce:
+          //   foo: my_module.to_json(t.foo)
 
-      #(
-        list.concat([acc.0, gen_req.imports]),
-        list.concat([
-          acc.1,
-          [gens.TupleVal([gens.StringVal(label), serializer])],
-        ]),
-      )
+          #(
+            list.flatten([acc.0, gen_req.imports]),
+            list.flatten([
+              acc.1,
+              [gens.TupleVal([gens.StringVal(label), serializer])],
+            ]),
+          )
+        }
+
+        _ -> {
+          let err =
+            "Variant "
+            <> string.inspect(variant)
+            <> " must have labels for all fields"
+          panic as err
+        }
+      }
     })
 
   genm.empty()
