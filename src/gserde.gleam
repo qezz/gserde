@@ -57,10 +57,7 @@ pub fn main() {
     // I have no idea why the traversal filter still includes directories.
     string.ends_with(v, ".gleam")
   })
-  |> yielder.each(fn(f) {
-    echo "processing single " <> f
-    process_single(f, is_debug)
-  })
+  |> yielder.each(fn(f) { process_single(f, is_debug) })
 }
 
 pub fn process_single(src_filename: String, is_debug) {
