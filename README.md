@@ -26,7 +26,7 @@ pub type FooJson {
     a_bool: Bool,
     b_int: Int,
     c_float: Float,
-    d_two_tuple: #(Int, String),
+    // d_two_tuple: #(Int, String), // NOTE: Tuples are not currently supported
     e_option_int: Option(Int),
     f_string_list: List(String),
   )
@@ -34,22 +34,15 @@ pub type FooJson {
 
 // src/foo_json.gleam
 // generated!
+import gleam/dynamic/decode
 import gleam/json
-import gleam/dynamic
-import internal/foo
+import internal/tmp_out/foo
 
 pub fn to_json(t: foo.FooJson) {
   json.object([
     #("a_bool", json.bool(t.a_bool)),
     #("b_int", json.int(t.b_int)),
     #("c_float", json.float(t.c_float)),
-    #(
-      "d_two_tuple",
-      json.preprocessed_array([
-        json.int(t.d_two_tuple.0),
-        json.string(t.d_two_tuple.1),
-      ]),
-    ),
     #("e_option_int", json.nullable(t.e_option_int, json.int)),
     #("f_string_list", json.array(t.f_string_list, json.string)),
   ])
@@ -60,19 +53,24 @@ pub fn to_string(t: foo.FooJson) {
 }
 
 pub fn get_decoder_foo() {
-  dynamic.decode6(
-    foo.Foo,
-    dynamic.field("a_bool", dynamic.bool),
-    dynamic.field("b_int", dynamic.int),
-    dynamic.field("c_float", dynamic.float),
-    dynamic.field("d_two_tuple", dynamic.tuple2(dynamic.int, dynamic.string)),
-    dynamic.field("e_option_int", dynamic.optional(dynamic.int)),
-    dynamic.field("f_string_list", dynamic.list(dynamic.string)),
-  )
+  use a_bool <- decode.field("a_bool", decode.bool)
+  use b_int <- decode.field("b_int", decode.int)
+  use c_float <- decode.field("c_float", decode.float)
+  use e_option_int <- decode.field("e_option_int", decode.optional(decode.int))
+  use f_string_list <- decode.field("f_string_list", decode.list(decode.string))
+  let parsed =
+    foo.Foo(
+      a_bool: a_bool,
+      b_int: b_int,
+      c_float: c_float,
+      e_option_int: e_option_int,
+      f_string_list: f_string_list,
+    )
+  decode.success(parsed)
 }
 
 pub fn from_string(json_str: String) {
-  json.decode(json_str, get_decoder_foo())
+  json.parse(json_str, get_decoder_foo())
 }
 
 // src/my_module.gleam
