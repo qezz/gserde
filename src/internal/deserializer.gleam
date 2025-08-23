@@ -1,6 +1,5 @@
 import common.{decoder_name_of_t}
 import glance
-import gleam/int
 import gleam/io
 import gleam/list
 import gleam/option
@@ -9,6 +8,10 @@ import internal/codegen/statements as gens
 import internal/codegen/types as t
 import internal/path.{basename}
 import request.{type Request, Request}
+
+pub type LabeledVariantFieldOnly {
+  LabelledVariantFieldX(item: glance.Type, label: String)
+}
 
 fn quote(str) {
   "\"" <> str <> "\""
@@ -20,16 +23,16 @@ fn gen_decoder(typ, req: Request) {
       case name {
         "List" -> {
           let assert Ok(t0) = list.first(parameters)
-          gens.call("dynamic.list", [gen_decoder(t0, req)])
+          gens.call("decode.list", [gen_decoder(t0, req)])
         }
         "Option" -> {
           let assert Ok(t0) = list.first(parameters)
-          gens.call("dynamic.optional", [gen_decoder(t0, req)])
+          gens.call("decode.optional", [gen_decoder(t0, req)])
         }
         _ -> {
           case module_name {
             option.None -> {
-              gens.VarPrimitive("dynamic." <> string.lowercase(name))
+              gens.VarPrimitive("decode." <> string.lowercase(name))
             }
             option.Some(module_str) -> {
               gens.VarPrimitive(
@@ -39,16 +42,6 @@ fn gen_decoder(typ, req: Request) {
           }
         }
       }
-    }
-    glance.TupleType(_loc, parts) -> {
-      let m_tuple =
-        list.length(of: parts)
-        |> int.to_string
-      gens.call(
-        "dynamic.tuple" <> string.lowercase(m_tuple),
-        parts
-          |> list.map(fn(part) { gen_decoder(part, req) }),
-      )
     }
     x -> {
       io.println(string.inspect(#("warning: unsupported decoding", x)))
@@ -64,39 +57,79 @@ fn gen_root_decoder(req: Request) {
     variant: variant,
     ..,
   ) = req
-  let n_str =
-    list.length(of: variant.fields)
-    |> int.to_string
 
   let decoder_fn_name = decoder_name_of_t(type_name)
 
-  [
-    gens.Function(decoder_fn_name, [], [
-      gens.call("dynamic.decode" <> n_str, [
-        gens.VarPrimitive(basename(src_module_name) <> "." <> variant.name),
-        ..list.map(req.variant.fields, fn(field) {
+  let named_fields: List(LabeledVariantFieldOnly) =
+    req.variant.fields
+    |> list.map(fn(field) {
+      case field {
+        glance.LabelledVariantField(item:, label:) -> {
+          LabelledVariantFieldX(item:, label:)
+        }
+        glance.UnlabelledVariantField(item: _) -> {
+          let err = "Failed to process field: " <> string.inspect(field) <> "
+Labeled type definitions are required for deserialization.
+
+Wrong:
+  type Foo(a, b, c) {}
+    Foo(a, b, c)
+  }
+
+Correct:
+  type Foo(a, b, c) {
+    Foo(bar: a, baz: b, quux: c)
+  }
+"
+          panic as err
+        }
+      }
+    })
+
+  let fields =
+    named_fields
+    |> list.map(fn(field) {
+      case field {
+        LabelledVariantFieldX(item: _, label:) -> {
+          gens.use_expr(label, "decode.field", [
+            gens.VarPrimitive(
+              label
+              |> quote,
+            ),
+            gen_decoder(field.item, req),
+          ])
+        }
+      }
+    })
+
+  let type_path =
+    gens.named_variant_with_full_name(
+      basename(src_module_name) <> "." <> variant.name,
+      named_fields
+        |> list.map(fn(field) {
           case field {
-            glance.LabelledVariantField(item: _, label:) -> {
-              gens.call("dynamic.field", [
-                gens.VarPrimitive(
-                  label
-                  |> quote,
-                ),
-                gen_decoder(field.item, req),
-              ])
-            }
-            glance.UnlabelledVariantField(item: _) -> {
-              todo
+            LabelledVariantFieldX(item: _, label:) -> {
+              #(label, gens.variable(label))
             }
           }
-        })
+        }),
+    )
+
+  let fields_with_decode_success =
+    list.append(fields, [
+      gens.let_var(gens.var_pattern("parsed"), type_path),
+      gens.FunctionCall("decode.success", [
+        gens.VarPrimitive("parsed"),
       ]),
-    ]),
+    ])
+
+  [
+    gens.Function(decoder_fn_name, [], fields_with_decode_success),
     gens.Function(
       "from_string",
       [gens.arg_typed("json_str", t.AnonymousType("String"))],
       [
-        gens.call("json.decode", [
+        gens.call("json.parse", [
           gens.VarPrimitive("json_str"),
           gens.call(decoder_fn_name, []),
         ]),

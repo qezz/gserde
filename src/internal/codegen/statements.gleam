@@ -21,7 +21,15 @@ pub type GleamStatement {
     statements: List(GleamStatement),
   )
   FunctionCall(name: String, arguments: List(GleamStatement))
+  // NOTE: it's arg as-is, not sure why. Maybe the name is a bit confusing.
   UseArg(arg: GleamStatement)
+
+  // use name <- fun_call_name(*fun_call_args)
+  UseExpr(
+    name: String,
+    fun_call_name: String,
+    fun_call_args: List(GleamStatement),
+  )
 
   LetVar(pattern: Pattern, statement: GleamStatement)
   LetArray(patterns: List(Pattern), array: GleamStatement)
@@ -30,6 +38,7 @@ pub type GleamStatement {
   Multiply(terms: List(GleamStatement))
 
   Direct(string: String)
+  NamedVariantVal(name: String, fields: List(#(String, GleamStatement)))
 }
 
 pub type ComparisonOperator {
@@ -150,6 +159,19 @@ pub fn use_arg(arg: Argument) {
   VarPrimitive(arg.name)
 }
 
+pub fn use_expr(
+  name: String,
+  fun_name: String,
+  fun_arguments: List(GleamStatement),
+) {
+  UseExpr(
+    name,
+    fun_name,
+    fun_arguments
+      |> map(UseArg),
+  )
+}
+
 pub fn name_of_var(var: GleamStatement) {
   let assert VarPrimitive(name) = var
   name
@@ -181,6 +203,21 @@ pub fn multiply(terms: List(GleamStatement)) -> GleamStatement {
 /// @deprecated
 pub fn direct(string) {
   Direct(string)
+}
+
+pub fn named_variant(
+  module: String,
+  name: String,
+  fields: List(#(String, GleamStatement)),
+) -> GleamStatement {
+  NamedVariantVal(name: module <> "." <> name, fields:)
+}
+
+pub fn named_variant_with_full_name(
+  name: String,
+  fields: List(#(String, GleamStatement)),
+) -> GleamStatement {
+  NamedVariantVal(name:, fields:)
 }
 
 pub fn generate(stmt: GleamStatement) -> String {
@@ -227,6 +264,7 @@ pub fn generate(stmt: GleamStatement) -> String {
         |> join("\n")
       }
       <> "\n}"
+
     Function(name, args, statements) ->
       "pub fn "
       <> name
@@ -248,6 +286,12 @@ pub fn generate(stmt: GleamStatement) -> String {
       <> ")"
     }
     UseArg(arg) -> generate(arg)
+
+    UseExpr(name, fun_call_name, fun_call_args) ->
+      "use "
+      <> name
+      <> " <- "
+      <> generate(FunctionCall(fun_call_name, fun_call_args))
 
     LetVar(pattern, statement) ->
       "let " <> generate_pattern(pattern) <> " = " <> generate(statement)
@@ -274,6 +318,14 @@ pub fn generate(stmt: GleamStatement) -> String {
       |> join(" * ")
 
     Direct(string) -> string
+
+    NamedVariantVal(name, fields) ->
+      name
+      <> "("
+      <> fields
+      |> map(fn(field) { field.0 <> ": " <> generate(field.1) })
+      |> join(", ")
+      <> ")"
   }
 }
 

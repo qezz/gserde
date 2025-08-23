@@ -1,5 +1,4 @@
 import ast.{get_import_path_from_mod_name}
-import evil.{expect}
 import glance
 import gleam/int
 import gleam/list
@@ -91,7 +90,8 @@ pub fn get_json_serializer_str(ct: t.GleamType) {
           "json.nullable"
         }
         _ -> {
-          panic as "VariantDefType not supported: " <> name
+          let err = "VariantDefType not supported: " <> name
+          panic as err
         }
       }
     }
