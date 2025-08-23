@@ -89,30 +89,20 @@ Correct:
   let fields =
     named_fields
     |> list.map(fn(field) {
-      case field {
-        LabelledVariantFieldX(item: _, label:) -> {
-          gens.use_expr(label, "decode.field", [
-            gens.VarPrimitive(
-              label
-              |> quote,
-            ),
-            gen_decoder(field.item, req),
-          ])
-        }
-      }
+      gens.use_expr(field.label, "decode.field", [
+        gens.VarPrimitive(
+          field.label
+          |> quote,
+        ),
+        gen_decoder(field.item, req),
+      ])
     })
 
   let type_path =
     gens.named_variant_with_full_name(
       basename(src_module_name) <> "." <> variant.name,
       named_fields
-        |> list.map(fn(field) {
-          case field {
-            LabelledVariantFieldX(item: _, label:) -> {
-              #(label, gens.variable(label))
-            }
-          }
-        }),
+        |> list.map(fn(field) { #(field.label, gens.variable(field.label)) }),
     )
 
   let fields_with_decode_success =
