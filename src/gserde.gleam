@@ -46,6 +46,10 @@ pub fn main() {
     _ -> panic as "path to a directory is required as a first argument"
   }
 
+  process_path(path)
+}
+
+pub fn process_path(path: String) {
   fswalk.builder()
   |> fswalk.with_path(path)
   |> fswalk.with_traversal_filter(fn(it) {
@@ -57,7 +61,7 @@ pub fn main() {
     // I have no idea why the traversal filter still includes directories.
     string.ends_with(v, ".gleam")
   })
-  |> yielder.each(fn(f) { process_single(f, is_debug) })
+  |> yielder.each(fn(f) { process_single(f, False) })
 }
 
 pub fn process_single(src_filename: String, is_debug) {
