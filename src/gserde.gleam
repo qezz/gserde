@@ -119,7 +119,7 @@ pub fn process_single(src_filename: String, is_debug) {
         to: dest_filename,
         contents: [
           "import gleam/json",
-          "import gleam/dynamic",
+          "import gleam/dynamic/decode",
           "import " <> src_module_name,
           filecontent,
         ]

@@ -12,7 +12,6 @@ pub type FooJson {
     a_bool: Bool,
     b_int: Int,
     c_float: Float,
-    d_two_tuple: #(Int, String),
     e_option_int: Option(Int),
     f_string_list: List(String),
   )
@@ -23,7 +22,6 @@ pub fn fixture_foo() {
     a_bool: True,
     b_int: 1,
     c_float: 1.0,
-    d_two_tuple: #(2, \"3\"),
     e_option_int: Some(4),
     f_string_list: [\"a\", \"b\"]
   )
@@ -41,7 +39,6 @@ pub type BarJson {
 "
 
 const foo_json_test = "
-import gleam/option.{Some}
 import gleam/io
 import gleam/result
 import internal/tmp_out/foo
@@ -72,7 +69,6 @@ pub fn main() {
 "
 
 const bar_json_test = "
-import gleam/option
 import gleam/io
 import gleam/result
 import internal/tmp_out/foo
@@ -143,13 +139,13 @@ pub fn main() {
     )
   // let assert Ok(_) = simplifile.rename("tmp_out", "src/internal/tmp_out")
 
-  // let assert Ok(last_foooutput_line) =
-  //   exec("gleam", ["run", "-m=internal/tmp_out/foo_json_test"])
-  //   |> string.split("\n")
-  //   |> list.last
+  let assert Ok(last_foooutput_line) =
+    exec("gleam", ["run", "-m=internal/tmp_out/foo_json_test"])
+    |> string.split("\n")
+    |> list.last
 
-  // last_foooutput_line
-  // |> should.equal(
-  //   "{\"a_bool\":true,\"b_int\":1,\"c_float\":1.0,\"d_two_tuple\":[2,\"3\"],\"e_option_int\":4,\"f_string_list\":[\"a\",\"b\"]}",
-  // )
+  last_foooutput_line
+  |> should.equal(
+    "{\"a_bool\":true,\"b_int\":1,\"c_float\":1.0,\"e_option_int\":4,\"f_string_list\":[\"a\",\"b\"]}",
+  )
 }
