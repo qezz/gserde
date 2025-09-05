@@ -1,5 +1,4 @@
 import argv
-import dot_env/env
 import evil.{expect}
 import fswalk
 import glance
@@ -36,11 +35,6 @@ fn to_output_filename(src_filename) {
 }
 
 pub fn main() {
-  let is_debug = case env.get_bool("DEBUG") {
-    Ok(_) -> True
-    _ -> False
-  }
-
   let path = case argv.load().arguments {
     [path] -> path
     _ -> panic as "path to a directory is required as a first argument"
