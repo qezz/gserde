@@ -21,6 +21,7 @@ packages = [
 [requirements]
 argv = { version = ">= 1.0.2 and < 2.0.0" }
 dot_env = { version = ">= 1.2.0 and < 2.0.0" }
+filepath = { version = ">= 1.1.2 and < 2.0.0" }
 fswalk = { version = ">= 3.0.3 and < 4.0.0" }
 glance = { git = "https://github.com/qezz/glance.git", ref = "eacc06769c49ddf161c67c2948b8fce5c041ac1f" }
 gleam_json = { version = ">= 3.0.2 and < 4.0.0" }

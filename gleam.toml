@@ -26,6 +26,7 @@ justin = ">= 1.0.1 and < 2.0.0"
 glance = { git = "https://github.com/qezz/glance.git", ref = "eacc06769c49ddf161c67c2948b8fce5c041ac1f" }
 gleam_yielder = ">= 1.1.0 and < 2.0.0"
 argv = ">= 1.0.2 and < 2.0.0"
+filepath = ">= 1.1.2 and < 2.0.0"
 
 [dev-dependencies]
 gleeunit = ">= 1.6.1 and < 2.0.0"
