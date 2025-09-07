@@ -9,7 +9,7 @@ import gleam/bool
 import gleam/int
 import gleam/io
 import gleam/list
-import gleam/option
+import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import gleam/yielder
@@ -19,21 +19,32 @@ import request.{type Request, Request}
 import simplifile
 import util
 
-pub fn gen(req: Request) {
-  let ser =
-    bool.guard(when: req.ser, return: serializer.from(req), otherwise: fn() {
-      ""
-    })
-  let de =
-    bool.guard(when: req.de, return: deserializer.to(req), otherwise: fn() {
-      ""
-    })
+pub type GenResult {
+  GenResult(req: Request, ser: option.Option(String), de: option.Option(String))
+}
 
-  #(
-    req,
-    [ser, de]
-      |> string.join("\n\n"),
-  )
+pub fn gen(req: Request) -> GenResult {
+  let ser =
+    bool.guard(
+      when: req.ser,
+      return: Some(serializer.from(req)),
+      otherwise: fn() { None },
+    )
+  let de =
+    bool.guard(
+      when: req.de,
+      return: Some(deserializer.to(req)),
+      otherwise: fn() { None },
+    )
+
+  GenResult(req:, ser:, de:)
+}
+
+pub fn group_gen_result(gr: GenResult) -> option.Option(String) {
+  [gr.ser, gr.de]
+  |> list.filter(option.is_some)
+  |> option.all
+  |> option.map(fn(lst) { lst |> string.join("\n\n") })
 }
 
 fn to_output_filename(src_filename) {
@@ -184,14 +195,24 @@ pub fn process_single(p: ParsedFile) -> option.Option(GeneratedFile) {
       })
     })
 
+  // let filecontent: option.Option(String) =
+  //   list.map(requests, gen)
+  //   |> list.map(fn(it) { it.1 })
+  //   |> string.join("\n\n")
+
   let filecontent =
     list.map(requests, gen)
-    |> list.map(fn(it) { it.1 })
-    |> string.join("\n\n")
+    |> list.map(fn(it) { group_gen_result(it) })
+    // |> list.map(fn(item) { option.unwrap(item, "") })
+    // |> list.filter_map(fn (item) { case option.is_some(item) {  } })
+    |> option.all
+    |> option.map(fn(data) { string.join(data, "\n\n") })
+  // |> string.join("\n\n")
 
   case filecontent {
-    "" -> option.None
-    other -> {
+    option.None -> option.None
+    // option.Some(other) if other == "" -> option.None
+    option.Some(other) if other != "" -> {
       let content2 =
         [
           "import gleam/json",
@@ -207,5 +228,6 @@ pub fn process_single(p: ParsedFile) -> option.Option(GeneratedFile) {
         data: content2,
       ))
     }
+    option.Some(_) -> option.None
   }
 }
