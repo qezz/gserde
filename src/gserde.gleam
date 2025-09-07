@@ -195,24 +195,15 @@ pub fn process_single(p: ParsedFile) -> option.Option(GeneratedFile) {
       })
     })
 
-  // let filecontent: option.Option(String) =
-  //   list.map(requests, gen)
-  //   |> list.map(fn(it) { it.1 })
-  //   |> string.join("\n\n")
-
   let filecontent =
     list.map(requests, gen)
     |> list.map(fn(it) { group_gen_result(it) })
-    // |> list.map(fn(item) { option.unwrap(item, "") })
-    // |> list.filter_map(fn (item) { case option.is_some(item) {  } })
     |> option.all
     |> option.map(fn(data) { string.join(data, "\n\n") })
-  // |> string.join("\n\n")
 
   case filecontent {
-    option.None -> option.None
-    // option.Some(other) if other == "" -> option.None
-    option.Some(other) if other != "" -> {
+    // TODO: This also should not rely on empty string. Maybe Some(Some(..))?
+    Some(other) if other != "" -> {
       let content2 =
         [
           "import gleam/json",
@@ -222,12 +213,12 @@ pub fn process_single(p: ParsedFile) -> option.Option(GeneratedFile) {
         ]
         |> string.join("\n")
 
-      option.Some(GeneratedFile(
+      Some(GeneratedFile(
         filepath: dest_filename,
         module_name: p.module_name,
         data: content2,
       ))
     }
-    option.Some(_) -> option.None
+    _other -> None
   }
 }
